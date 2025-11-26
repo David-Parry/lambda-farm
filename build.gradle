@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'org.unbroken-dome.test-sets' version "4.1.0"
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // AWS Lambda Core
+    implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'
+    
+    // AWS Lambda Events
+    implementation 'com.amazonaws:aws-lambda-java-events:3.14.0'
+    
+    // AWS Secrets Manager
+    implementation 'software.amazon.awssdk:secretsmanager:2.20.0'
+    
+    // Jackson for JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.1'
+    
+    // Logging
+    implementation 'com.amazonaws:aws-lambda-java-log4j2:1.6.0'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.1'
+    implementation 'org.apache.logging.log4j:log4j-api:2.24.1'
+
+    testImplementation(platform("org.junit:junit-bom:5.11.3"))
+    // Test dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testImplementation 'org.mockito:mockito-core:5.8.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+shadowJar {
+    archiveBaseName.set('lambda-farm')
+    archiveClassifier.set('')
+    archiveVersion.set('1.0.0')
+}
+
+tasks.build.dependsOn tasks.shadowJar
+
+test {
+    useJUnitPlatform()
+}
+
+testSets {
+    integrationTest
+}
+
+tasks.named('integrationTest') {
+    useJUnitPlatform()
+}
