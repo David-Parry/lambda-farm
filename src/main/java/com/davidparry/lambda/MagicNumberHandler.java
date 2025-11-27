@@ -30,12 +30,29 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate that query parameters exist and contain the required parameter
+            if (queryParams == null || !queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+                return createErrorResponse(400, "Missing required query parameter: magicNumber");
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate that the parameter value is not empty
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Empty magicNumber parameter received");
+                return createErrorResponse(400, "magicNumber must be a non-empty integer.");
+            }
+            
+            // Validate and parse the magic number with explicit NumberFormatException handling
+            final Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException nfe) {
+                context.getLogger().log("Invalid magicNumber value: " + magicNumberStr);
+                return createErrorResponse(400, "Invalid magicNumber. Must be a valid integer.");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -51,6 +68,8 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             return response;
             
         } catch (Exception e) {
+            // This catch block is for unexpected server-side failures only
+            // Client input validation errors are handled above with 400 responses
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
