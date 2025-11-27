@@ -1,6 +1,6 @@
 # Lambda Farm
 
-Collection of AWS Lambda functions (Java 21) for various use cases.
+Collection of AWS Lambda functions (Java 25) for various use cases for Demo only.
 
 ## Lambda Functions
 
@@ -10,8 +10,6 @@ Forwards CloudWatch Logs to a webhook endpoint in real-time.
 ### 2. Magic Number Handler
 API Gateway integrated Lambda that processes a "magic number" query parameter from GET requests.
 - **Handler**: `com.davidparry.lambda.MagicNumberHandler`
-- **Setup IAM Role**: `./create-lambda-role.sh` (run once)
-- **Deployment**: `./deploy-magic-number.sh`
 
 ---
 

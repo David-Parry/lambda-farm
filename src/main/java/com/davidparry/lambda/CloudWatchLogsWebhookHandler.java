@@ -66,7 +66,7 @@ public class CloudWatchLogsWebhookHandler implements RequestHandler<CloudWatchLo
                 
                 // Send to webhook
                 sendToWebhook(webhookPayload, context);
-                
+                context.getLogger().log("Payload sent successfully payload is:"+objectMapper.writeValueAsString(webhookPayload));
                 return "Successfully processed " + logData.logEvents.length + " log events with high severity - webhook sent";
             } else {
                 return "Processed " + logData.logEvents.length + " log events with " + severity + " severity - webhook not sent";
@@ -107,7 +107,8 @@ public class CloudWatchLogsWebhookHandler implements RequestHandler<CloudWatchLo
         payload.put("event_count", logData.logEvents.length);
         payload.put("source", "AWS CloudWatch Logs");
         payload.put("timestamp", Instant.now().toString());
-        
+        payload.put("git_repo_uri","git@github.com:David-Parry/lambda-farm.git");
+        payload.put("jira_project_key","SCRUM");
         // Add log events
         ArrayNode eventsArray = payload.putArray("log_events");
         for (LogEvent logEvent : logData.logEvents) {
