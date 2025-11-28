@@ -28,3 +28,5 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.rar
+gradle-8.5/
+gradle.zip
