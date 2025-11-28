@@ -30,12 +30,39 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate query parameters exist
+            if (queryParams == null || !queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+                return createErrorResponse(400, "Missing required query parameter 'magicNumber'");
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate the parameter is not empty
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Empty magicNumber parameter received");
+                return createErrorResponse(400, "Query parameter 'magicNumber' cannot be empty");
+            }
+            
+            // Trim the input
+            magicNumberStr = magicNumberStr.trim();
+            
+            // Validate the parameter is numeric
+            if (!isValidInteger(magicNumberStr)) {
+                context.getLogger().log("Non-numeric magicNumber parameter received: " + magicNumberStr);
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be a valid integer");
+            }
+            
+            // Parse the magic number (safe now after validation)
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr);
+            } catch (NumberFormatException e) {
+                // This should not happen after validation, but handle it gracefully
+                context.getLogger().log("Failed to parse magicNumber: " + magicNumberStr);
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be a valid integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,6 +84,20 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Validates if a string represents a valid integer
+     * Supports optional leading + or - sign
+     */
+    private boolean isValidInteger(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        
+        // Check if it matches the pattern for a valid integer
+        // Supports optional leading + or - followed by digits
+        return str.matches("-?\\d+");
     }
     
     /**
