@@ -27,6 +27,13 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
         response.setHeaders(createHeaders());
         
+        // Handle OPTIONS preflight request for CORS
+        if ("OPTIONS".equals(request.getHttpMethod())) {
+            response.setStatusCode(200);
+            response.setBody("{}");
+            return response;
+        }
+        
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
@@ -67,7 +74,7 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         headers.put("Content-Type", "application/json");
         headers.put("Access-Control-Allow-Origin", "*");
         headers.put("Access-Control-Allow-Methods", "GET, OPTIONS");
-        headers.put("Access-Control-Allow-Headers", "Content-Type");
+        headers.put("Access-Control-Allow-Headers", "Content-Type, x-api-key");
         return headers;
     }
     
