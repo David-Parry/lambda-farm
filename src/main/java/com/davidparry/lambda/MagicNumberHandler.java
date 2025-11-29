@@ -37,12 +37,32 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
-
+            // Validate query parameters exist
+            if (queryParams == null || !queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+                return createErrorResponse(400, "Missing required query parameter 'magicNumber'");
+            }
+            
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
+            // Validate non-empty value
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Empty magicNumber parameter");
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be a non-empty integer");
+            }
+            
+            // Trim the value before parsing
+            magicNumberStr = magicNumberStr.trim();
+            
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr);
+            } catch (NumberFormatException e) {
+                context.getLogger().log("Invalid magicNumber parameter: '" + magicNumberStr + "'");
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be a valid integer: '" + magicNumberStr + "'");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -58,6 +78,7 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             return response;
             
         } catch (Exception e) {
+            // Handle unexpected server errors
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
