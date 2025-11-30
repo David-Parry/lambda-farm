@@ -13,7 +13,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter
+ * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter.
+ * 
+ * Expected behavior:
+ * - Returns 400 Bad Request if magicNumber parameter is missing, empty, or invalid
+ * - Returns 200 OK with processed results for valid integer input
+ * - Returns 500 Internal Server Error only for unexpected server-side errors
  */
 public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
     
@@ -37,12 +42,29 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate that query parameters exist
+            if (queryParams == null || !queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Missing required 'magicNumber' query parameter");
+                return createErrorResponse(400, "Missing required 'magicNumber' query parameter");
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
+            // Validate that the parameter is not null or empty
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Invalid magicNumber parameter: value is empty");
+                return createErrorResponse(400, "Invalid magicNumber parameter: must be a non-empty integer");
+            }
+            
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException nfe) {
+                context.getLogger().log("Invalid magicNumber parameter: " + magicNumberStr + " - " + nfe.getMessage());
+                return createErrorResponse(400, "Invalid magicNumber parameter: must be a valid integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
