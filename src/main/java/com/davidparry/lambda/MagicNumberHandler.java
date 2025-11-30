@@ -37,12 +37,17 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate query parameters exist
+            if (queryParams == null || !queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("VALIDATION_ERROR: Query parameter 'magicNumber' is missing");
+                return createErrorResponse(400, "Query parameter 'magicNumber' is required");
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate and parse the magic number using helper method
+            Integer magicNumber = parseMagicNumber(magicNumberStr);
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +62,43 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (IllegalArgumentException e) {
+            // Client error - invalid input
+            context.getLogger().log("VALIDATION_ERROR: " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Server error - unexpected exception
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates and parses the magic number string.
+     * 
+     * @param magicNumberStr the string to parse
+     * @return the parsed integer value
+     * @throws IllegalArgumentException if the string is null, empty, or not a valid integer
+     */
+    private Integer parseMagicNumber(String magicNumberStr) {
+        // Check for null or empty
+        if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query parameter 'magicNumber' cannot be empty");
+        }
+        
+        // Validate format: optional leading sign followed by digits only
+        if (!magicNumberStr.matches("^-?\\d+$")) {
+            throw new IllegalArgumentException("Query parameter 'magicNumber' must be a valid integer");
+        }
+        
+        try {
+            return Integer.parseInt(magicNumberStr);
+        } catch (NumberFormatException e) {
+            // This should not happen after regex validation, but handle it just in case
+            throw new IllegalArgumentException("Query parameter 'magicNumber' must be a valid integer");
         }
     }
     
