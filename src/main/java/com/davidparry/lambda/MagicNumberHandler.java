@@ -13,7 +13,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter
+ * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter.
+ * 
+ * The handler validates that the magicNumber parameter is present and is a valid integer.
+ * Invalid or missing input results in HTTP 400 Bad Request responses.
  */
 public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
     
@@ -35,14 +38,37 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Validate query parameters are present
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null) {
+                context.getLogger().log("Missing query parameters");
+                return createErrorResponse(400, "Missing query parameters: magicNumber is required");
+            }
             
-
+            // Validate magicNumber parameter is present
+            if (!queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Missing required query parameter: magicNumber");
+                return createErrorResponse(400, "Missing required query parameter: magicNumber");
+            }
+            
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate magicNumber parameter is not empty
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Empty magicNumber parameter");
+                return createErrorResponse(400, "Invalid magicNumber: parameter cannot be empty");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Parse and validate the magic number
+            Integer magicNumber;
+            try {
+                magicNumber = parseMagicNumber(magicNumberStr);
+            } catch (IllegalArgumentException e) {
+                context.getLogger().log("Invalid magicNumber input: '" + magicNumberStr + "' - " + e.getMessage());
+                return createErrorResponse(400, e.getMessage());
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +83,40 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (IllegalArgumentException e) {
+            // Client input validation errors - return 400
+            context.getLogger().log("Validation error: " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Unexpected server errors - return 500
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Parses and validates the magic number string.
+     * 
+     * @param magicNumberStr the string to parse
+     * @return the parsed integer value
+     * @throws IllegalArgumentException if the string is not a valid integer
+     */
+    private Integer parseMagicNumber(String magicNumberStr) throws IllegalArgumentException {
+        // Validate format: optional sign followed by digits only
+        String trimmed = magicNumberStr.trim();
+        if (!trimmed.matches("^[+-]?\\d+$")) {
+            throw new IllegalArgumentException("Invalid magicNumber: must be a whole number (received: '" + magicNumberStr + "')");
+        }
+        
+        try {
+            return Integer.parseInt(trimmed);
+        } catch (NumberFormatException e) {
+            // This can still occur if the number is too large for Integer
+            throw new IllegalArgumentException("Invalid magicNumber: value out of range (must be between " + 
+                Integer.MIN_VALUE + " and " + Integer.MAX_VALUE + ")");
         }
     }
     
