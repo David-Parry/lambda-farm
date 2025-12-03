@@ -37,12 +37,8 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
-
-            String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
-            context.getLogger().log("Received magic number: " + magicNumberStr);
-            
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Parse and validate the magic number parameter
+            Integer magicNumber = parseMagicNumber(queryParams, context);
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +53,59 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (IllegalArgumentException e) {
+            // Client error - invalid input
+            context.getLogger().log("Validation error: " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Server error - unexpected exception
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Parses and validates the magicNumber query parameter
+     * 
+     * @param queryParams The query string parameters from the request
+     * @param context The Lambda context for logging
+     * @return The parsed integer value
+     * @throws IllegalArgumentException if the parameter is missing, empty, or not a valid integer
+     */
+    private Integer parseMagicNumber(Map<String, String> queryParams, Context context) {
+        // Check if query parameters exist
+        if (queryParams == null || queryParams.isEmpty()) {
+            throw new IllegalArgumentException("Missing query parameters. The 'magicNumber' parameter is required.");
+        }
+        
+        // Check if magicNumber parameter exists
+        String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+        if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing or empty 'magicNumber' parameter. Please provide a valid integer.");
+        }
+        
+        context.getLogger().log("Received magic number: " + magicNumberStr);
+        
+        // Validate format using regex - only accept valid integers (with optional leading minus sign)
+        if (!magicNumberStr.matches("^-?\\d+$")) {
+            throw new IllegalArgumentException(
+                "Invalid 'magicNumber' parameter: '" + magicNumberStr + "'. " +
+                "The magicNumber must be a valid integer (e.g., 42, -10, 0)."
+            );
+        }
+        
+        // Parse the integer
+        try {
+            return Integer.parseInt(magicNumberStr);
+        } catch (NumberFormatException e) {
+            // This should rarely happen due to regex validation, but handle overflow cases
+            throw new IllegalArgumentException(
+                "Invalid 'magicNumber' parameter: '" + magicNumberStr + "'. " +
+                "The value is outside the valid integer range (-2147483648 to 2147483647)."
+            );
         }
     }
     
