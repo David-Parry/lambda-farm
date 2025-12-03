@@ -125,6 +125,11 @@
             box-shadow: 0 0 20px rgba(196, 181, 253, 0.5);
         }
 
+        .magic-input.invalid {
+            border-color: #dc2626;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+        }
+
         button {
             width: 100%;
             padding: 15px;
@@ -315,8 +320,36 @@
 
         createStars();
 
+        // Client-side numeric validation
+        const magicNumberInput = document.getElementById('magicNumber');
+        
+        // Restrict input to numeric characters only (including negative sign)
+        magicNumberInput.addEventListener('input', function(event) {
+            const value = event.target.value;
+            
+            // Allow only digits and optional leading minus sign
+            const validPattern = /^-?\d*$/;
+            
+            if (!validPattern.test(value)) {
+                // Remove invalid characters
+                event.target.value = value.replace(/[^-\d]/g, '');
+                
+                // Ensure minus sign is only at the beginning
+                const parts = event.target.value.split('-');
+                if (parts.length > 2) {
+                    event.target.value = '-' + parts.filter(p => p !== '').join('');
+                }
+                
+                // Visual feedback for invalid input
+                event.target.classList.add('invalid');
+                setTimeout(() => {
+                    event.target.classList.remove('invalid');
+                }, 500);
+            }
+        });
+
         // Allow Enter key to submit
-        document.getElementById('magicNumber').addEventListener('keypress', function(event) {
+        magicNumberInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 castMagicSpell();
             }
@@ -324,11 +357,17 @@
 
         async function castMagicSpell() {
             const magicNumberInput = document.getElementById('magicNumber');
-            const magicNumber = magicNumberInput.value;
+            const magicNumber = magicNumberInput.value.trim();
 
-            // Validate input
-            if (!magicNumber || magicNumber.trim() === '') {
+            // Validate input is not empty
+            if (!magicNumber || magicNumber === '' || magicNumber === '-') {
                 showError('Please enter a magic number!');
+                return;
+            }
+
+            // Validate input is a valid integer
+            if (!/^-?\d+$/.test(magicNumber)) {
+                showError('Please enter a valid integer magic number (digits only, no letters or special characters).');
                 return;
             }
 
@@ -349,18 +388,20 @@
                     }
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`API returned status ${response.status}`);
-                }
-
                 const data = await response.json();
+
+                // Check for error responses from backend
+                if (!response.ok || data.errorCode) {
+                    const errorMessage = data.message || `API returned status ${response.status}`;
+                    throw new Error(errorMessage);
+                }
 
                 // Display results
                 displayResults(data);
 
             } catch (error) {
                 console.error('Error:', error);
-                showError('The magic spell failed! Please try again. Error: ' + error.message);
+                showError('The magic spell failed! ' + error.message);
             } finally {
                 // Hide loading
                 document.getElementById('loading').classList.remove('active');
