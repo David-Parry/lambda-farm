@@ -37,12 +37,14 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
-
-            String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
-            context.getLogger().log("Received magic number: " + magicNumberStr);
-            
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber = parseMagicNumber(queryParams, context);
+            
+            // If validation failed, parseMagicNumber returns null and we should have already returned
+            // This is a safety check that should not be reached
+            if (magicNumber == null) {
+                return createErrorResponse(400, "Invalid magicNumber parameter");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +59,47 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (ValidationException e) {
+            // Client error - invalid input
+            context.getLogger().log("Validation error: " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Server error - unexpected exception
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates and parses the magic number from query parameters
+     * 
+     * @param queryParams the query string parameters map (may be null)
+     * @param context the Lambda context for logging
+     * @return the parsed integer value
+     * @throws ValidationException if the parameter is missing or invalid
+     */
+    private Integer parseMagicNumber(Map<String, String> queryParams, Context context) throws ValidationException {
+        // Check if query parameters exist
+        if (queryParams == null || queryParams.isEmpty()) {
+            throw new ValidationException("Missing query parameters. Please provide a 'magicNumber' parameter.");
+        }
+        
+        // Check if magicNumber parameter exists
+        String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+        if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+            throw new ValidationException("Missing required parameter: 'magicNumber'. Please provide a valid integer.");
+        }
+        
+        context.getLogger().log("Received magic number: " + magicNumberStr);
+        
+        // Parse and validate the integer
+        try {
+            return Integer.parseInt(magicNumberStr.trim());
+        } catch (NumberFormatException e) {
+            throw new ValidationException("Invalid magicNumber format: '" + magicNumberStr + "'. The magicNumber parameter must be a valid integer.");
         }
     }
     
@@ -96,5 +133,14 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         return response;
+    }
+    
+    /**
+     * Custom exception for validation errors
+     */
+    private static class ValidationException extends Exception {
+        public ValidationException(String message) {
+            super(message);
+        }
     }
 }
