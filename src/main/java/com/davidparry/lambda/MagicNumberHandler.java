@@ -37,12 +37,27 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
-
+            // Validate that query parameters exist
+            if (queryParams == null || queryParams.isEmpty()) {
+                context.getLogger().log("ERROR: No query parameters provided");
+                return createErrorResponse(400, "magicNumber query parameter is required");
+            }
+            
+            // Validate that magicNumber parameter exists
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("ERROR: magicNumber parameter is missing or empty");
+                return createErrorResponse(400, "magicNumber query parameter is required");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber = parseMagicNumber(magicNumberStr, context);
+            if (magicNumber == null) {
+                context.getLogger().log("ERROR: Invalid magicNumber format: " + magicNumberStr);
+                return createErrorResponse(422, "magicNumber must be a valid integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -61,8 +76,25 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
-            return createErrorResponse(500, "Internal server error: " + e.getMessage());
+            context.getLogger().log("ERROR: Unexpected server error: " + e.getMessage() + "\n" + sw);
+            return createErrorResponse(500, "Internal server error");
+        }
+    }
+    
+    /**
+     * Parses the magic number string into an Integer.
+     * Returns null if the string is not a valid integer.
+     * 
+     * @param value the string value to parse
+     * @param context the Lambda context for logging
+     * @return the parsed Integer or null if invalid
+     */
+    private Integer parseMagicNumber(String value, Context context) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            context.getLogger().log("NumberFormatException for input: " + value + " - " + e.getMessage());
+            return null;
         }
     }
     
