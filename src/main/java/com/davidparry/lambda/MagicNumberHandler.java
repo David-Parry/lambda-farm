@@ -9,8 +9,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter
@@ -35,14 +37,27 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
-            Map<String, String> queryParams = request.getQueryStringParameters();
+            // Safe retrieval of query parameters with null protection
+            Map<String, String> queryParams = Optional.ofNullable(request.getQueryStringParameters())
+                    .orElse(Collections.emptyMap());
             
-
+            // Validate that magicNumber parameter exists
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("ERROR: magicNumber query parameter is missing or empty");
+                return createErrorResponse(400, "magicNumber query parameter is required");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate and parse the magic number with proper error handling
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException e) {
+                context.getLogger().log("ERROR: Invalid magicNumber format: " + magicNumberStr);
+                return createErrorResponse(400, "magicNumber must be an integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
