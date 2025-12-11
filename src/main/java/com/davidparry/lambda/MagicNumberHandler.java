@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,7 +23,7 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
     
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        context.getLogger().log("Received API Gateway request");
+        context.getLogger().log("Received API Gateway request - Method: " + request.getHttpMethod());
         
         APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
         response.setHeaders(createHeaders());
@@ -35,15 +36,24 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Safely handle null query parameters
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null) {
+                queryParams = Collections.emptyMap();
+            }
             
-
-            String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
-            context.getLogger().log("Received magic number: " + magicNumberStr);
+            context.getLogger().log("Query parameters: " + queryParams);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
-
+            // Validate magic number parameter
+            ValidationResult validationResult = validateMagicNumber(queryParams);
+            if (!validationResult.isValid()) {
+                context.getLogger().log("Validation failed: " + validationResult.getErrorMessage());
+                return createErrorResponse(400, validationResult.getErrorMessage());
+            }
+            
+            Integer magicNumber = validationResult.getValue();
+            context.getLogger().log("Received valid magic number: " + magicNumber);
+            
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
             responseBody.put("magicNumber", magicNumber);
@@ -58,11 +68,40 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             return response;
             
         } catch (Exception e) {
+            // This catch block now only handles unexpected server errors
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
+            context.getLogger().log("ERROR: Unexpected server error - " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates the magic number parameter from query string
+     * 
+     * @param queryParams the query string parameters map
+     * @return ValidationResult containing the parsed value or error message
+     */
+    private ValidationResult validateMagicNumber(Map<String, String> queryParams) {
+        // Check if parameter is present
+        if (!queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+            return ValidationResult.error("Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+        }
+        
+        String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+        
+        // Check if parameter is null or empty
+        if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+            return ValidationResult.error("Query parameter '" + MAGIC_NUMBER_PARAM + "' cannot be empty");
+        }
+        
+        // Validate numeric format
+        try {
+            Integer magicNumber = Integer.parseInt(magicNumberStr.trim());
+            return ValidationResult.success(magicNumber);
+        } catch (NumberFormatException e) {
+            return ValidationResult.error("Query parameter '" + MAGIC_NUMBER_PARAM + "' must be a valid integer. Received: " + magicNumberStr);
         }
     }
     
@@ -96,5 +135,40 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         return response;
+    }
+    
+    /**
+     * Helper class to encapsulate validation results
+     */
+    private static class ValidationResult {
+        private final boolean valid;
+        private final Integer value;
+        private final String errorMessage;
+        
+        private ValidationResult(boolean valid, Integer value, String errorMessage) {
+            this.valid = valid;
+            this.value = value;
+            this.errorMessage = errorMessage;
+        }
+        
+        public static ValidationResult success(Integer value) {
+            return new ValidationResult(true, value, null);
+        }
+        
+        public static ValidationResult error(String errorMessage) {
+            return new ValidationResult(false, null, errorMessage);
+        }
+        
+        public boolean isValid() {
+            return valid;
+        }
+        
+        public Integer getValue() {
+            return value;
+        }
+        
+        public String getErrorMessage() {
+            return errorMessage;
+        }
     }
 }
