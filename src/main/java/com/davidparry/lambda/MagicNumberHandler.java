@@ -35,14 +35,30 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Validate query parameters exist
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null) {
+                context.getLogger().log("ERROR: Query string parameters are null");
+                return createErrorResponse(400, "Query string parameters are required");
+            }
             
-
+            // Validate magicNumber parameter exists
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("ERROR: magicNumber parameter is missing or empty");
+                return createErrorResponse(400, "Required parameter 'magicNumber' is missing or empty");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException e) {
+                context.getLogger().log("ERROR: Invalid magicNumber format: " + magicNumberStr + " - " + e.getMessage());
+                return createErrorResponse(400, "Invalid magicNumber format. Expected a valid integer, got: " + magicNumberStr);
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -61,7 +77,7 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
+            context.getLogger().log("ERROR: Unexpected error - " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
         }
     }
