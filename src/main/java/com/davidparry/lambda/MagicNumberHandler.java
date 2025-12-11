@@ -35,14 +35,28 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Validate queryStringParameters is not null
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null) {
+                context.getLogger().log("WARN: Missing query string parameters");
+                return createErrorResponse(400, "Missing query string parameters. Please provide 'magicNumber' parameter.");
+            }
             
-
+            // Validate magicNumber parameter exists
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("WARN: Missing or empty magicNumber parameter");
+                return createErrorResponse(400, "Missing or empty 'magicNumber' parameter. Please provide a valid integer value.");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate magicNumber is numeric before parsing
+            Integer magicNumber = parseMagicNumber(magicNumberStr, context);
+            if (magicNumber == null) {
+                context.getLogger().log("WARN: Invalid magicNumber format: " + magicNumberStr);
+                return createErrorResponse(400, "Invalid 'magicNumber' parameter: '" + magicNumberStr + "'. Please provide a valid integer value.");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -61,8 +75,28 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
+            context.getLogger().log("ERROR: Unexpected exception - " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Parses and validates the magic number string
+     * @param magicNumberStr the string to parse
+     * @param context the Lambda context for logging
+     * @return the parsed Integer, or null if invalid
+     */
+    private Integer parseMagicNumber(String magicNumberStr, Context context) {
+        // Validate numeric format using regex (supports negative integers)
+        if (!magicNumberStr.matches("^-?\\d+$")) {
+            return null;
+        }
+        
+        try {
+            return Integer.parseInt(magicNumberStr);
+        } catch (NumberFormatException e) {
+            context.getLogger().log("WARN: NumberFormatException for input: " + magicNumberStr);
+            return null;
         }
     }
     
