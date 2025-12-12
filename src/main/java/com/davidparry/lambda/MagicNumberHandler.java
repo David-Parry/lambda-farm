@@ -35,14 +35,14 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
-            Map<String, String> queryParams = request.getQueryStringParameters();
+            // Validate and parse the magic number parameter
+            Integer magicNumber = validateAndParseMagicNumber(request, context);
             
-
-            String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
-            context.getLogger().log("Received magic number: " + magicNumberStr);
-            
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // If validation failed, the method returns null and we should have already returned an error
+            if (magicNumber == null) {
+                context.getLogger().log("Validation failed - this should not happen");
+                return createErrorResponse(500, "Internal validation error");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +57,59 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (NumberFormatException e) {
+            context.getLogger().log("Invalid magic number format: " + e.getMessage());
+            return createErrorResponse(400, "magicNumber must be a valid integer");
+        } catch (IllegalArgumentException e) {
+            context.getLogger().log("Validation error: " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates and parses the magic number from the request query parameters
+     * 
+     * @param request The API Gateway request event
+     * @param context The Lambda execution context
+     * @return The parsed magic number as an Integer
+     * @throws IllegalArgumentException if the parameter is missing or null
+     * @throws NumberFormatException if the parameter is not a valid integer
+     */
+    private Integer validateAndParseMagicNumber(APIGatewayProxyRequestEvent request, Context context) {
+        // Guard against null request
+        if (request == null) {
+            context.getLogger().log("Request is null");
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        
+        // Guard against null query parameters map
+        Map<String, String> queryParams = request.getQueryStringParameters();
+        if (queryParams == null) {
+            context.getLogger().log("Query parameters are missing");
+            throw new IllegalArgumentException("Query parameter '" + MAGIC_NUMBER_PARAM + "' is required");
+        }
+        
+        // Check if the magic number parameter exists
+        String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+        if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+            context.getLogger().log("Magic number parameter is missing or empty");
+            throw new IllegalArgumentException("Query parameter '" + MAGIC_NUMBER_PARAM + "' is required and cannot be empty");
+        }
+        
+        context.getLogger().log("Received magic number: " + magicNumberStr);
+        
+        // Parse and validate the magic number
+        try {
+            return Integer.parseInt(magicNumberStr.trim());
+        } catch (NumberFormatException e) {
+            context.getLogger().log("Failed to parse magic number: " + magicNumberStr);
+            throw new NumberFormatException("For input string: " + magicNumberStr);
         }
     }
     
