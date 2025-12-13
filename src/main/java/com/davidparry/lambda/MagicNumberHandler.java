@@ -37,11 +37,29 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate query parameters exist
+            if (queryParams == null || queryParams.isEmpty()) {
+                context.getLogger().log("Missing query parameters");
+                return createErrorResponse(400, "Missing required query parameter: magicNumber");
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate magicNumber parameter is present
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Missing or empty magicNumber parameter");
+                return createErrorResponse(400, "Missing or empty required parameter: magicNumber");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
+            // Validate magicNumber format before parsing
+            if (!magicNumberStr.matches("-?\\d+")) {
+                context.getLogger().log("Invalid magicNumber format: " + magicNumberStr);
+                return createErrorResponse(400, "Invalid magicNumber format. Expected numeric value, received: " + magicNumberStr);
+            }
+            
+            // Parse the magic number (now safe after validation)
             Integer magicNumber = Integer.parseInt(magicNumberStr);
 
             // Process the magic number (example logic)
@@ -57,6 +75,9 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (NumberFormatException e) {
+            context.getLogger().log("NumberFormatException: " + e.getMessage());
+            return createErrorResponse(400, "Invalid number format for magicNumber parameter");
         } catch (Exception e) {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
