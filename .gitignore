@@ -28,3 +28,6 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.rar
+
+# Allow gradle wrapper jar (must be committed for ./gradlew to work)
+!gradle/wrapper/gradle-wrapper.jar

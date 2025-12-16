@@ -175,7 +175,8 @@ public class CloudWatchLogsWebhookHandler implements RequestHandler<CloudWatchLo
     
     private void sendToWebhook(ObjectNode payload, Context context) throws IOException, InterruptedException {
         if (WEBHOOK_URL == null || WEBHOOK_URL.isEmpty()) {
-            throw new RuntimeException("WEBHOOK_URL environment variable is not set");
+            context.getLogger().log("WARNING: WEBHOOK_URL not configured, skipping webhook send");
+            return;
         }
 
         String jsonPayload = objectMapper.writeValueAsString(payload);
