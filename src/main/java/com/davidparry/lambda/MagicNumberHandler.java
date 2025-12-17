@@ -9,8 +9,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Lambda handler for API Gateway GET requests that processes a "magic number" query parameter
@@ -19,6 +22,7 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String MAGIC_NUMBER_PARAM = "magicNumber";
+    private static final Pattern INTEGER_PATTERN = Pattern.compile("^-?\\d+$");
     
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
@@ -35,14 +39,23 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
-            Map<String, String> queryParams = request.getQueryStringParameters();
+            // Safely access query parameters with null protection
+            Map<String, String> queryParams = Objects.requireNonNullElse(
+                request.getQueryStringParameters(), 
+                Collections.emptyMap()
+            );
             
+            // Validate that magicNumber parameter exists
+            if (!queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("INFO: Missing magicNumber query parameter");
+                return createErrorResponse(400, "Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber = validateAndParseMagicNumber(magicNumberStr, context);
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +70,47 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (IllegalArgumentException e) {
+            // Handle validation errors with 400 Bad Request
+            context.getLogger().log("INFO: Validation error - " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Handle unexpected errors with 500 Internal Server Error
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates and parses the magic number string
+     * 
+     * @param value the string value to validate and parse
+     * @param context the Lambda context for logging
+     * @return the parsed integer value
+     * @throws IllegalArgumentException if the value is null, empty, or not a valid integer
+     */
+    private Integer validateAndParseMagicNumber(String value, Context context) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("magicNumber parameter cannot be empty");
+        }
+        
+        // Validate that the string contains only digits (and optional leading minus sign)
+        if (!INTEGER_PATTERN.matcher(value.trim()).matches()) {
+            throw new IllegalArgumentException(
+                "Invalid magicNumber format: '" + value + "'. Must be a valid integer."
+            );
+        }
+        
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            // This should rarely happen due to regex validation, but handle it just in case
+            throw new IllegalArgumentException(
+                "magicNumber value out of range or invalid: '" + value + "'"
+            );
         }
     }
     
