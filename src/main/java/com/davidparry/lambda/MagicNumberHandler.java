@@ -37,11 +37,28 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate query parameters exist
+            if (queryParams == null || queryParams.isEmpty()) {
+                context.getLogger().log("Missing query parameters");
+                return createErrorResponse(400, "Missing query parameters. Please provide 'magicNumber' parameter.");
+            }
 
+            // Validate magicNumber parameter exists
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("Missing magicNumber parameter");
+                return createErrorResponse(400, "Missing 'magicNumber' query parameter. Please provide a valid integer.");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
+            // Validate magicNumber is a valid integer using regex
+            if (!magicNumberStr.matches("^-?\\d+$")) {
+                context.getLogger().log("Invalid magicNumber input: " + magicNumberStr);
+                return createErrorResponse(400, "Invalid 'magicNumber' parameter. Must be a valid integer (e.g., 123, -456). Received: " + magicNumberStr);
+            }
+            
+            // Parse the magic number (safe now after validation)
             Integer magicNumber = Integer.parseInt(magicNumberStr);
 
             // Process the magic number (example logic)
@@ -57,6 +74,10 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (NumberFormatException e) {
+            // This should not happen after regex validation, but handle it defensively
+            context.getLogger().log("NumberFormatException: " + e.getMessage());
+            return createErrorResponse(400, "Invalid 'magicNumber' parameter. Must be a valid integer.");
         } catch (Exception e) {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
