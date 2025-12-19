@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,14 +36,31 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Guard against null queryParams by defaulting to empty map
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null) {
+                queryParams = Collections.emptyMap();
+            }
             
-
+            // Safely fetch magicNumber parameter
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate that magicNumber parameter is present
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("WARNING: Missing or empty 'magicNumber' query parameter");
+                return createErrorResponse(400, "Query parameter 'magicNumber' is required");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate and parse the magic number with proper error handling
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException e) {
+                context.getLogger().log("WARNING: Invalid 'magicNumber' format: " + magicNumberStr + " - " + e.getMessage());
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be a valid integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
