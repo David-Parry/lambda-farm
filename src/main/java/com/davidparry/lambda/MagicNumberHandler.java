@@ -37,12 +37,26 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
+            // Validate query parameters exist
+            if (queryParams == null || queryParams.isEmpty()) {
+                String errorMsg = "Missing required query parameter: " + MAGIC_NUMBER_PARAM;
+                context.getLogger().log("WARN: " + errorMsg);
+                return createErrorResponse(400, errorMsg);
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate magic number parameter exists
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                String errorMsg = "Missing or empty required query parameter: " + MAGIC_NUMBER_PARAM;
+                context.getLogger().log("WARN: " + errorMsg);
+                return createErrorResponse(400, errorMsg);
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber = parseMagicNumber(magicNumberStr);
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -57,12 +71,44 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (IllegalArgumentException e) {
+            // Client error - invalid input
+            context.getLogger().log("WARN: Invalid input - " + e.getMessage());
+            return createErrorResponse(400, e.getMessage());
         } catch (Exception e) {
+            // Server error - unexpected exception
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates and parses the magic number string.
+     * 
+     * @param magicNumberStr the string to parse
+     * @return the parsed integer value
+     * @throws IllegalArgumentException if the string is not a valid integer
+     */
+    private Integer parseMagicNumber(String magicNumberStr) {
+        String trimmed = magicNumberStr.trim();
+        
+        // Validate numeric pattern (supports negative integers)
+        if (!trimmed.matches("^-?\\d+$")) {
+            throw new IllegalArgumentException(
+                "Invalid magicNumber format: '" + magicNumberStr + "'. Must be a valid integer."
+            );
+        }
+        
+        try {
+            return Integer.parseInt(trimmed);
+        } catch (NumberFormatException e) {
+            // This should rarely happen due to regex validation, but handle overflow cases
+            throw new IllegalArgumentException(
+                "Invalid magicNumber value: '" + magicNumberStr + "'. Value out of range for integer."
+            );
         }
     }
     
