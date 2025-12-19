@@ -35,14 +35,31 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Guard against null query parameter map
             Map<String, String> queryParams = request.getQueryStringParameters();
-            
+            if (queryParams == null || queryParams.isEmpty()) {
+                context.getLogger().log("WARN: Query parameters are null or empty");
+                return createErrorResponse(400, "Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+            }
 
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate that magicNumber parameter exists
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("WARN: magicNumber parameter is missing or empty");
+                return createErrorResponse(400, "Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            // Validate and parse the magic number with proper error handling
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr.trim());
+            } catch (NumberFormatException e) {
+                context.getLogger().log("WARN: Invalid magicNumber format: " + magicNumberStr + " - " + e.getMessage());
+                return createErrorResponse(400, "Invalid magicNumber: must be a valid integer. Received: " + magicNumberStr);
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
@@ -58,10 +75,11 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             return response;
             
         } catch (Exception e) {
+            // Only unexpected exceptions should reach here
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
-            context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
+            context.getLogger().log("ERROR: Unexpected exception - " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
         }
     }
