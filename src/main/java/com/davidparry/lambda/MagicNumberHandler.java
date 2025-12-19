@@ -35,14 +35,37 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         }
         
         try {
+            // Validate query parameters exist
             Map<String, String> queryParams = request.getQueryStringParameters();
+            if (queryParams == null || queryParams.isEmpty()) {
+                context.getLogger().log("Validation failed: Missing query parameters");
+                return createErrorResponse(400, "Query parameter 'magicNumber' is required");
+            }
             
-
+            // Validate magicNumber parameter exists
+            if (!queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("Validation failed: Missing magicNumber parameter");
+                return createErrorResponse(400, "Query parameter 'magicNumber' is required");
+            }
+            
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate magicNumber is not blank
+            if (magicNumberStr == null || magicNumberStr.isBlank()) {
+                context.getLogger().log("Validation failed: magicNumber parameter is blank");
+                return createErrorResponse(400, "Query parameter 'magicNumber' cannot be blank");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
             // Validate and parse the magic number
-            Integer magicNumber = Integer.parseInt(magicNumberStr);
+            Integer magicNumber;
+            try {
+                magicNumber = Integer.parseInt(magicNumberStr);
+            } catch (NumberFormatException nfe) {
+                context.getLogger().log("Validation failed: Invalid magicNumber value: " + magicNumberStr);
+                return createErrorResponse(400, "Query parameter 'magicNumber' must be an integer");
+            }
 
             // Process the magic number (example logic)
             ObjectNode responseBody = objectMapper.createObjectNode();
