@@ -37,11 +37,35 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
         try {
             Map<String, String> queryParams = request.getQueryStringParameters();
             
-
+            // Defensive check: ensure query parameters exist
+            if (queryParams == null) {
+                context.getLogger().log("ERROR: No query parameters provided");
+                return createErrorResponse(400, "Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+            }
+            
+            // Validate that magicNumber parameter exists
+            if (!queryParams.containsKey(MAGIC_NUMBER_PARAM)) {
+                context.getLogger().log("ERROR: magicNumber parameter not found in query string");
+                return createErrorResponse(400, "Missing required query parameter: " + MAGIC_NUMBER_PARAM);
+            }
+            
             String magicNumberStr = queryParams.get(MAGIC_NUMBER_PARAM);
+            
+            // Validate that magicNumber is not null or empty
+            if (magicNumberStr == null || magicNumberStr.trim().isEmpty()) {
+                context.getLogger().log("ERROR: magicNumber parameter is null or empty");
+                return createErrorResponse(400, "Query parameter '" + MAGIC_NUMBER_PARAM + "' cannot be empty");
+            }
+            
             context.getLogger().log("Received magic number: " + magicNumberStr);
             
-            // Validate and parse the magic number
+            // Validate that magicNumber contains only numeric characters
+            if (!isValidInteger(magicNumberStr)) {
+                context.getLogger().log("ERROR: magicNumber parameter is not a valid integer: " + magicNumberStr);
+                return createErrorResponse(400, "Query parameter '" + MAGIC_NUMBER_PARAM + "' must be a valid integer");
+            }
+            
+            // Parse the magic number (safe now after validation)
             Integer magicNumber = Integer.parseInt(magicNumberStr);
 
             // Process the magic number (example logic)
@@ -57,12 +81,53 @@ public class MagicNumberHandler implements RequestHandler<APIGatewayProxyRequest
             context.getLogger().log("Successfully processed magic number: " + magicNumber);
             return response;
             
+        } catch (NumberFormatException e) {
+            // This should not occur after validation, but handle defensively
+            context.getLogger().log("ERROR: NumberFormatException - " + e.getMessage());
+            return createErrorResponse(400, "Query parameter '" + MAGIC_NUMBER_PARAM + "' must be a valid integer");
         } catch (Exception e) {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             e.printStackTrace(pw);
             context.getLogger().log("ERROR: " + e.getMessage() + "\n" + sw);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validates that a string represents a valid integer
+     * @param str the string to validate
+     * @return true if the string is a valid integer, false otherwise
+     */
+    private boolean isValidInteger(String str) {
+        if (str == null || str.trim().isEmpty()) {
+            return false;
+        }
+        
+        String trimmed = str.trim();
+        
+        // Handle negative numbers
+        int startIndex = 0;
+        if (trimmed.charAt(0) == '-' || trimmed.charAt(0) == '+') {
+            if (trimmed.length() == 1) {
+                return false; // Just a sign is not valid
+            }
+            startIndex = 1;
+        }
+        
+        // Check all remaining characters are digits
+        for (int i = startIndex; i < trimmed.length(); i++) {
+            if (!Character.isDigit(trimmed.charAt(i))) {
+                return false;
+            }
+        }
+        
+        // Additional check: try parsing to ensure it's within Integer range
+        try {
+            Integer.parseInt(trimmed);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
     
