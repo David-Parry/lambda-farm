@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'org.unbroken-dome.test-sets' version "4.1.0"
+    id 'jacoco'
 }
 
 group = 'com.example'
@@ -50,9 +51,44 @@ shadowJar {
 
 tasks.build.dependsOn tasks.shadowJar
 
+jacoco {
+    toolVersion = "0.8.11"
+}
+
 test {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
 }
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    
+    // Exclude integration tests from coverage
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/integrationTest/**'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.75  // 75% coverage
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
 
 testSets {
     integrationTest
