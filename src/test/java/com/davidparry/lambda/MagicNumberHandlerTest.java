@@ -177,7 +177,7 @@ class MagicNumberHandlerTest {
     }
     
     @Test
-    void shouldReturnErrorForInvalidNumberFormat() throws Exception {
+    void shouldReturnBadRequestForInvalidNumberFormat() throws Exception {
         // Arrange
         APIGatewayProxyRequestEvent request = createGetRequest("not-a-number");
         
@@ -185,16 +185,67 @@ class MagicNumberHandlerTest {
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
         
         // Assert
-        assertEquals(500, response.getStatusCode());
+        assertEquals(400, response.getStatusCode());
         assertNotNull(response.getBody());
         
         JsonNode responseBody = objectMapper.readTree(response.getBody());
         assertTrue(responseBody.has("error"));
-        assertEquals(500, responseBody.get("statusCode").asInt());
+        assertEquals(400, responseBody.get("statusCode").asInt());
+        assertTrue(responseBody.get("error").asText().contains("Invalid format"));
     }
     
     @Test
-    void shouldReturnErrorForMissingMagicNumberParameter() throws Exception {
+    void shouldReturnBadRequestForMalformedMagicNumber() throws Exception {
+        // Arrange - This is the specific case from the bug report
+        APIGatewayProxyRequestEvent request = createGetRequest("34@");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(400, response.getStatusCode());
+        assertNotNull(response.getBody());
+        
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertTrue(responseBody.has("error"));
+        assertEquals(400, responseBody.get("statusCode").asInt());
+        assertTrue(responseBody.get("error").asText().contains("Invalid format"));
+    }
+    
+    @Test
+    void shouldReturnBadRequestForMagicNumberWithSpecialCharacters() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("12#45");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(400, response.getStatusCode());
+        
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertTrue(responseBody.has("error"));
+        assertEquals(400, responseBody.get("statusCode").asInt());
+    }
+    
+    @Test
+    void shouldReturnBadRequestForMagicNumberWithLetters() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("123abc");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(400, response.getStatusCode());
+        
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertTrue(responseBody.has("error"));
+        assertEquals(400, responseBody.get("statusCode").asInt());
+    }
+    
+    @Test
+    void shouldReturnBadRequestForMissingMagicNumberParameter() throws Exception {
         // Arrange
         APIGatewayProxyRequestEvent request = createGetRequest(null);
         
@@ -202,7 +253,41 @@ class MagicNumberHandlerTest {
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
         
         // Assert
-        assertEquals(500, response.getStatusCode());
+        assertEquals(400, response.getStatusCode());
+        assertNotNull(response.getBody());
+        
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertTrue(responseBody.has("error"));
+        assertTrue(responseBody.get("error").asText().contains("Missing required query parameter"));
+    }
+    
+    @Test
+    void shouldReturnBadRequestForEmptyMagicNumberParameter() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(400, response.getStatusCode());
+        assertNotNull(response.getBody());
+        
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertTrue(responseBody.has("error"));
+        assertTrue(responseBody.get("error").asText().contains("Missing required query parameter"));
+    }
+    
+    @Test
+    void shouldReturnBadRequestForWhitespaceMagicNumberParameter() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("   ");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(400, response.getStatusCode());
         assertNotNull(response.getBody());
         
         JsonNode responseBody = objectMapper.readTree(response.getBody());
@@ -210,7 +295,7 @@ class MagicNumberHandlerTest {
     }
     
     @Test
-    void shouldReturnErrorForNullQueryParameters() {
+    void shouldReturnBadRequestForNullQueryParameters() {
         // Arrange
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
         request.setHttpMethod("GET");
@@ -220,7 +305,7 @@ class MagicNumberHandlerTest {
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
         
         // Assert
-        assertEquals(500, response.getStatusCode());
+        assertEquals(400, response.getStatusCode());
         assertNotNull(response.getBody());
     }
     
@@ -269,7 +354,7 @@ class MagicNumberHandlerTest {
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
         
         // Assert
-        assertEquals(500, response.getStatusCode());
+        assertEquals(400, response.getStatusCode());
         
         Map<String, String> headers = response.getHeaders();
         assertNotNull(headers);
@@ -302,15 +387,15 @@ class MagicNumberHandlerTest {
     }
     
     @Test
-    void shouldLogErrorsWithStackTrace() {
+    void shouldLogInvalidInputAttempts() {
         // Arrange
-        APIGatewayProxyRequestEvent request = createGetRequest("invalid");
+        APIGatewayProxyRequestEvent request = createGetRequest("34@");
         
         // Act
         handler.handleRequest(request, mockContext);
         
         // Assert
-        verify(mockLogger).log(contains("ERROR"));
+        verify(mockLogger, atLeastOnce()).log(anyString());
     }
     
     @Test
@@ -355,5 +440,47 @@ class MagicNumberHandlerTest {
         // Assert
         JsonNode responseBody = objectMapper.readTree(response.getBody());
         assertEquals(25, responseBody.get("squared").asInt());
+    }
+    
+    @Test
+    void shouldHandleNumberWithLeadingZeros() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("007");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(200, response.getStatusCode());
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertEquals(7, responseBody.get("magicNumber").asInt());
+    }
+    
+    @Test
+    void shouldHandleNumberWithPlusSign() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("+42");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(200, response.getStatusCode());
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertEquals(42, responseBody.get("magicNumber").asInt());
+    }
+    
+    @Test
+    void shouldHandleNumberWithWhitespace() throws Exception {
+        // Arrange
+        APIGatewayProxyRequestEvent request = createGetRequest("  42  ");
+        
+        // Act
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mockContext);
+        
+        // Assert
+        assertEquals(200, response.getStatusCode());
+        JsonNode responseBody = objectMapper.readTree(response.getBody());
+        assertEquals(42, responseBody.get("magicNumber").asInt());
     }
 }
